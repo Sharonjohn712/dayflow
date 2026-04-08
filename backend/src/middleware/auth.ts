@@ -1,9 +1,5 @@
-import { createClerkClient } from '@clerk/backend'
+import { verifyToken } from '@clerk/backend'
 import type { MiddlewareHandler } from 'hono'
-
-const clerk = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY!,
-})
 
 // Augment Hono's context Variables type
 declare module 'hono' {
@@ -20,10 +16,14 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
 
   const token = authHeader.slice(7)
   try {
-    const payload = await clerk.verifyToken(token)
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY!,
+      jwtKey: process.env.CLERK_JWT_KEY,
+    })
     c.set('userId', payload.sub)
     await next()
-  } catch {
+  } catch (err) {
+    console.error('[auth] token verification failed:', err)
     return c.json({ error: 'Invalid or expired token' }, 401)
   }
 }

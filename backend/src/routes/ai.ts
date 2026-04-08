@@ -1,14 +1,19 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 import { prisma } from '../lib/prisma.js'
 
 export const aiRouter = new Hono()
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
+const MODEL = 'llama-3.3-70b-versatile'
+
+// Lazily instantiated so env vars are guaranteed to be loaded first
+let _groq: Groq | null = null
+function getGroq() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
+  return _groq
+}
 
 // ── GET /api/ai/suggestions ───────────────────────────────────────────────────
 // Returns 6 AI-generated task suggestions based on context
@@ -27,8 +32,8 @@ aiRouter.get('/suggestions', async (c) => {
   const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
   const existing = recentTasks.map((t) => t.text).join(', ') || 'none'
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
+  const completion = await getGroq().chat.completions.create({
+    model: MODEL,
     max_tokens: 200,
     messages: [
       {
@@ -42,7 +47,7 @@ Example: ["Reply to emails","10-min walk","Review calendar"]`,
     ],
   })
 
-  const text = message.content.map((b) => ('text' in b ? b.text : '')).join('')
+  const text = completion.choices[0]?.message?.content ?? ''
   try {
     const suggestions = JSON.parse(text.replace(/```json|```/g, '').trim()) as string[]
     return c.json({ suggestions })
@@ -53,7 +58,7 @@ Example: ["Reply to emails","10-min walk","Review calendar"]`,
 
 // ── POST /api/ai/review — streaming day review ────────────────────────────────
 const reviewSchema = z.object({
-  userName: z.string().max(100).optional(),
+  userName: z.string().max(100).nullish(),
 })
 
 aiRouter.post('/review', zValidator('json', reviewSchema), async (c) => {
@@ -105,10 +110,11 @@ Tone: warm, direct, honest. Prose only, no bullets.${userName ? ` Address ${user
 Final line must be: SCORE: [0-100]`
 
   // Stream the response back to the client
-  const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-4-5',
+  const stream = await getGroq().chat.completions.create({
+    model: MODEL,
     max_tokens: 1000,
     messages: [{ role: 'user', content: prompt }],
+    stream: true,
   })
 
   return new Response(
@@ -116,12 +122,8 @@ Final line must be: SCORE: [0-100]`
       async start(controller) {
         const encoder = new TextEncoder()
         for await (const chunk of stream) {
-          if (
-            chunk.type === 'content_block_delta' &&
-            chunk.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text))
-          }
+          const text = chunk.choices[0]?.delta?.content ?? ''
+          if (text) controller.enqueue(encoder.encode(text))
         }
         controller.close()
       },
