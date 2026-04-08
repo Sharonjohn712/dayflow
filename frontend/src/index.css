@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-cream text-text1 font-sans;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border2 rounded-full;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-card p-5 shadow-sm;
+  }
+
+  .card-title {
+    @apply font-serif text-lg font-semibold text-text1 mb-4 flex items-center gap-2;
+  }
+
+  .btn-primary {
+    @apply bg-steel text-white rounded-DEFAULT px-4 py-2 text-sm font-semibold
+           hover:bg-accent transition-all hover:-translate-y-px active:translate-y-0
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+           whitespace-nowrap cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-text2 border border-border2 rounded-DEFAULT px-4 py-2
+           text-sm font-semibold hover:bg-peach transition-all cursor-pointer;
+  }
+
+  .btn-warm {
+    @apply bg-warm text-white rounded-DEFAULT px-4 py-2 text-sm font-semibold
+           hover:bg-orange-600 transition-all cursor-pointer;
+  }
+
+  .input {
+    @apply bg-cream border border-border rounded-DEFAULT px-3 py-2 text-sm
+           text-text1 placeholder:text-muted2 outline-none w-full font-sans
+           focus:border-steel focus:ring-2 focus:ring-steel/20 transition-all;
+  }
+
+  .badge {
+    @apply text-xs font-semibold bg-sage rounded-lg px-2 py-0.5 text-accent;
+  }
+
+  .cat-work     { @apply bg-mist text-accent text-xs font-semibold rounded-lg px-2 py-1; }
+  .cat-health   { @apply bg-sage text-green text-xs font-semibold rounded-lg px-2 py-1; }
+  .cat-personal { @apply bg-peach text-gold text-xs font-semibold rounded-lg px-2 py-1; }
+  .cat-other    { @apply bg-stone-100 text-muted text-xs font-semibold rounded-lg px-2 py-1; }
+}
+
+/* Streaming cursor */
+.ai-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: #82B2C0;
+  vertical-align: text-bottom;
+  animation: blink 0.9s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.25s ease both;
+}

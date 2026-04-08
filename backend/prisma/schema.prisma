@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  category  Category @default(OTHER)
+  dueTime   String?  // "HH:MM" format, nullable
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model Goal {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  progress  Int      @default(0) // 0–100
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Habit {
+  id        String        @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime      @default(now())
+  checks    HabitCheck[]
+
+  @@index([userId])
+}
+
+model HabitCheck {
+  id      String   @id @default(cuid())
+  habitId String
+  date    String   // "YYYY-MM-DD"
+  habit   Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  mood      String?  // emoji string
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum Category {
+  WORK
+  HEALTH
+  PERSONAL
+  OTHER
+}
