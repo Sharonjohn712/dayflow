@@ -49,10 +49,13 @@ function AuthGate() {
   return (
     <>
       <SignedOut>
-        {/* Centered sign-in card */}
-        <div className="min-h-screen bg-cream flex items-center justify-center">
+        {/* Sign-in over the ripped-paper hero image */}
+        <div
+          className="min-h-screen bg-cream flex items-center justify-center bg-cover bg-center bg-no-repeat px-4"
+          style={{ backgroundImage: "url('/login-bg.jpg')" }}
+        >
           <div className="text-center">
-            <div className="font-serif text-4xl font-semibold text-text1 mb-2">☀️ Dayflow</div>
+            <div className="font-serif text-4xl font-semibold text-text1 mb-2 drop-shadow-sm">☀️ Dayflow</div>
             <p className="text-text2 mb-8 text-sm">Your AI-powered daily planning companion</p>
             <SignIn routing="hash" afterSignInUrl="/" />
           </div>
