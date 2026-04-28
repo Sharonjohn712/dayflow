@@ -1,6 +1,6 @@
 # Dayflow — Full-Stack AI Daily Planner
 
-React + Vite · Hono · PostgreSQL (Supabase) · Clerk Auth · Anthropic API
+React + Vite · Hono · PostgreSQL (Supabase) · Clerk Auth · Groq
 
 ## Stack
 
@@ -10,7 +10,7 @@ React + Vite · Hono · PostgreSQL (Supabase) · Clerk Auth · Anthropic API
 | Backend | Node.js, Hono, Zod validation, Prisma ORM |
 | Database | PostgreSQL via Supabase |
 | Auth | Clerk (OAuth + session management) |
-| AI | Anthropic API — `claude-sonnet-4-5` (server-side only) |
+| AI | Groq — `llama-3.3-70b-versatile` with streaming day reviews (server-side only) |
 | Deploy | Vercel (frontend) + Railway (backend) |
 
 ## Local Development
@@ -41,7 +41,8 @@ cd ../backend && npm install
 ```env
 DATABASE_URL="postgresql://..."   # Supabase connection string
 CLERK_SECRET_KEY="sk_..."
-ANTHROPIC_API_KEY="sk-ant-..."
+CLERK_JWT_KEY="..."               # JWKS public key for token verification
+GROQ_API_KEY="gsk_..."            # from console.groq.com
 ALLOWED_ORIGIN="http://localhost:5173"
 PORT=3001
 ```

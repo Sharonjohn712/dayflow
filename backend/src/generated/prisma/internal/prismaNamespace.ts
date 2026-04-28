@@ -388,7 +388,8 @@ export const ModelName = {
   Goal: 'Goal',
   Habit: 'Habit',
   HabitCheck: 'HabitCheck',
-  JournalEntry: 'JournalEntry'
+  JournalEntry: 'JournalEntry',
+  LlmEvent: 'LlmEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -404,7 +405,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "task" | "goal" | "habit" | "habitCheck" | "journalEntry"
+    modelProps: "task" | "goal" | "habit" | "habitCheck" | "journalEntry" | "llmEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -778,6 +779,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    LlmEvent: {
+      payload: Prisma.$LlmEventPayload<ExtArgs>
+      fields: Prisma.LlmEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LlmEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LlmEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        findFirst: {
+          args: Prisma.LlmEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LlmEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        findMany: {
+          args: Prisma.LlmEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>[]
+        }
+        create: {
+          args: Prisma.LlmEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        createMany: {
+          args: Prisma.LlmEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LlmEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>[]
+        }
+        delete: {
+          args: Prisma.LlmEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        update: {
+          args: Prisma.LlmEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.LlmEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LlmEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LlmEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.LlmEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmEventPayload>
+        }
+        aggregate: {
+          args: Prisma.LlmEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLlmEvent>
+        }
+        groupBy: {
+          args: Prisma.LlmEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LlmEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmEventCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -871,6 +946,24 @@ export const JournalEntryScalarFieldEnum = {
 } as const
 
 export type JournalEntryScalarFieldEnum = (typeof JournalEntryScalarFieldEnum)[keyof typeof JournalEntryScalarFieldEnum]
+
+
+export const LlmEventScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  endpoint: 'endpoint',
+  model: 'model',
+  inputTokens: 'inputTokens',
+  outputTokens: 'outputTokens',
+  ttftMs: 'ttftMs',
+  totalMs: 'totalMs',
+  costUsd: 'costUsd',
+  cached: 'cached',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type LlmEventScalarFieldEnum = (typeof LlmEventScalarFieldEnum)[keyof typeof LlmEventScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1079,6 +1172,7 @@ export type GlobalOmitConfig = {
   habit?: Prisma.HabitOmit
   habitCheck?: Prisma.HabitCheckOmit
   journalEntry?: Prisma.JournalEntryOmit
+  llmEvent?: Prisma.LlmEventOmit
 }
 
 /* Types for Logging */

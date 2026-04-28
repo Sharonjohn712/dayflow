@@ -9,7 +9,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "evals": "tsx evals/run-evals.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

@@ -67,3 +67,21 @@ enum Category {
   PERSONAL
   OTHER
 }
+
+model LlmEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  endpoint     String   // 'review' | 'suggestions' | ...
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  ttftMs       Int?     // time to first token (streaming only)
+  totalMs      Int
+  costUsd      Float
+  cached       Boolean  @default(false)
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([endpoint, createdAt])
+}

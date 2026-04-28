@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import App from './App'
 import { setTokenGetter } from './lib/api'
+import { useBackendWakeup } from './hooks/useBackendWakeup'
+import { WakeupOverlay } from './components/WakeupOverlay'
 import './index.css'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -30,6 +32,19 @@ function TokenBridge() {
   return null
 }
 
+// Probes the backend on mount and shows a wake-up overlay during cold starts.
+// The app still renders underneath so React Query queries can race the probe —
+// if the backend is warm, the user sees nothing and the queries succeed normally.
+function BackendGate({ children }: { children: React.ReactNode }) {
+  const { state, retry } = useBackendWakeup()
+  return (
+    <>
+      {children}
+      <WakeupOverlay state={state} onRetry={retry} />
+    </>
+  )
+}
+
 function AuthGate() {
   return (
     <>
@@ -45,7 +60,9 @@ function AuthGate() {
       </SignedOut>
       <SignedIn>
         <TokenBridge />
-        <App />
+        <BackendGate>
+          <App />
+        </BackendGate>
       </SignedIn>
     </>
   )

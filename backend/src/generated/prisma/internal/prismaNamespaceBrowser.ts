@@ -55,7 +55,8 @@ export const ModelName = {
   Goal: 'Goal',
   Habit: 'Habit',
   HabitCheck: 'HabitCheck',
-  JournalEntry: 'JournalEntry'
+  JournalEntry: 'JournalEntry',
+  LlmEvent: 'LlmEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -128,6 +129,24 @@ export const JournalEntryScalarFieldEnum = {
 } as const
 
 export type JournalEntryScalarFieldEnum = (typeof JournalEntryScalarFieldEnum)[keyof typeof JournalEntryScalarFieldEnum]
+
+
+export const LlmEventScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  endpoint: 'endpoint',
+  model: 'model',
+  inputTokens: 'inputTokens',
+  outputTokens: 'outputTokens',
+  ttftMs: 'ttftMs',
+  totalMs: 'totalMs',
+  costUsd: 'costUsd',
+  cached: 'cached',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type LlmEventScalarFieldEnum = (typeof LlmEventScalarFieldEnum)[keyof typeof LlmEventScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -8,6 +8,7 @@ import { goalsRouter } from './routes/goals.js'
 import { habitsRouter } from './routes/habits.js'
 import { journalRouter } from './routes/journal.js'
 import { aiRouter } from './routes/ai.js'
+import { statsRouter } from './routes/stats.js'
 import { requireAuth } from './middleware/auth.js'
 import { errorHandler } from './middleware/error.js'
 
@@ -32,6 +33,7 @@ app.route('/api/goals', goalsRouter)
 app.route('/api/habits', habitsRouter)
 app.route('/api/journal', journalRouter)
 app.route('/api/ai', aiRouter)
+app.route('/api/stats', statsRouter)
 
 // ── Global error handler ─────────────────────────────────────────────────────
 app.onError(errorHandler)

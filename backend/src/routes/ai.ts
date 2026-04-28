@@ -3,6 +3,8 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import Groq from 'groq-sdk'
 import { prisma } from '../lib/prisma.js'
+import { buildReviewPrompt } from '../lib/review-prompt.js'
+import { recordLlmEvent } from '../lib/metrics.js'
 
 export const aiRouter = new Hono()
 
@@ -19,40 +21,63 @@ function getGroq() {
 // Returns 6 AI-generated task suggestions based on context
 aiRouter.get('/suggestions', async (c) => {
   const userId = c.get('userId')
+  const t0 = Date.now()
+  let inputTokens = 0
+  let outputTokens = 0
+  let errorMsg: string | null = null
 
-  const recentTasks = await prisma.task.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-    select: { text: true },
-  })
+  try {
+    const recentTasks = await prisma.task.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { text: true },
+    })
 
-  const hour = new Date().getHours()
-  const period = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
-  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
-  const existing = recentTasks.map((t) => t.text).join(', ') || 'none'
+    const hour = new Date().getHours()
+    const period = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+    const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    const existing = recentTasks.map((t) => t.text).join(', ') || 'none'
 
-  const completion = await getGroq().chat.completions.create({
-    model: MODEL,
-    max_tokens: 200,
-    messages: [
-      {
-        role: 'user',
-        content: `You are a productivity assistant. Suggest 6 short, practical daily tasks for the ${period} on a ${dayName}.
+    const completion = await getGroq().chat.completions.create({
+      model: MODEL,
+      max_tokens: 200,
+      messages: [
+        {
+          role: 'user',
+          content: `You are a productivity assistant. Suggest 6 short, practical daily tasks for the ${period} on a ${dayName}.
 Existing tasks: ${existing}
 Return ONLY a JSON array of exactly 6 strings, each under 40 chars.
 No explanations, no markdown, no backticks.
 Example: ["Reply to emails","10-min walk","Review calendar"]`,
-      },
-    ],
-  })
+        },
+      ],
+    })
 
-  const text = completion.choices[0]?.message?.content ?? ''
-  try {
-    const suggestions = JSON.parse(text.replace(/```json|```/g, '').trim()) as string[]
-    return c.json({ suggestions })
-  } catch {
-    return c.json({ suggestions: [] })
+    inputTokens = completion.usage?.prompt_tokens ?? 0
+    outputTokens = completion.usage?.completion_tokens ?? 0
+
+    const text = completion.choices[0]?.message?.content ?? ''
+    try {
+      const suggestions = JSON.parse(text.replace(/```json|```/g, '').trim()) as string[]
+      return c.json({ suggestions })
+    } catch {
+      return c.json({ suggestions: [] })
+    }
+  } catch (err) {
+    errorMsg = err instanceof Error ? err.message : String(err)
+    throw err
+  } finally {
+    recordLlmEvent({
+      userId,
+      endpoint: 'suggestions',
+      model: MODEL,
+      inputTokens,
+      outputTokens,
+      ttftMs: null,
+      totalMs: Date.now() - t0,
+      error: errorMsg,
+    }).catch((err) => console.error('[metrics] failed to record:', err))
   }
 })
 
@@ -81,51 +106,74 @@ aiRouter.post('/review', zValidator('json', reviewSchema), async (c) => {
     }),
   ])
 
-  const done = tasks.filter((t) => t.done).length
-  const total = tasks.length
-  const pct = total ? Math.round((done / total) * 100) : 0
+  const prompt = buildReviewPrompt({
+    userName,
+    tasks: tasks.map((t) => ({ text: t.text, category: t.category, done: t.done })),
+    goals: goals.map((g) => ({ text: g.text, progress: g.progress })),
+    habits: habits.map((h) => ({ name: h.name, doneToday: h.checks.length > 0 })),
+    journalText: entries[0]?.text ?? null,
+  })
 
-  const habitSummary = habits
-    .map((h) => `${h.name}: ${h.checks.length > 0 ? 'done' : 'not done'}`)
-    .join('; ')
+  // Streaming + observability:
+  // - Capture time-to-first-token for UX latency tracking
+  // - Capture token usage from the trailing chunk (Groq returns it when
+  //   stream_options.include_usage is true)
+  // - Log a single LlmEvent after the stream completes (or on error)
+  const startTs = Date.now()
+  let firstTokenTs: number | null = null
+  let inputTokens = 0
+  let outputTokens = 0
+  let streamError: string | null = null
 
-  const prompt = `You are Dayflow, a warm and insightful AI productivity coach. Analyze this person's day.
-${userName ? `Their name is ${userName}.` : ''}
-
-TODAY:
-- Tasks: ${done}/${total} done (${pct}%)
-- Completed: ${tasks.filter((t) => t.done).map((t) => `[${t.category}] ${t.text}`).join(', ') || 'none'}
-- Pending: ${tasks.filter((t) => !t.done).map((t) => `[${t.category}] ${t.text}`).join(', ') || 'none'}
-- Goals: ${goals.map((g) => `"${g.text}" (${g.progress}%)`).join('; ') || 'none'}
-- Habits: ${habitSummary || 'none tracked'}
-- Latest journal: ${entries[0]?.text || 'no entry'}
-
-Write a warm, concise review (3–4 paragraphs):
-1. Overall verdict
-2. What they did well (specific)
-3. Habits & patterns
-4. One motivating insight for tomorrow
-
-Tone: warm, direct, honest. Prose only, no bullets.${userName ? ` Address ${userName} by name at least once.` : ''}
-Final line must be: SCORE: [0-100]`
-
-  // Stream the response back to the client
-  const stream = await getGroq().chat.completions.create({
+  // Cast: groq-sdk v1.1 types don't yet expose stream_options, but the API supports it
+  // and returns a final chunk with usage when include_usage is true.
+  type StreamChunk = {
+    choices: { delta?: { content?: string } }[]
+    usage?: { prompt_tokens?: number; completion_tokens?: number }
+    x_groq?: { usage?: { prompt_tokens?: number; completion_tokens?: number } }
+  }
+  const stream = (await getGroq().chat.completions.create({
     model: MODEL,
     max_tokens: 1000,
     messages: [{ role: 'user', content: prompt }],
     stream: true,
-  })
+    stream_options: { include_usage: true },
+  } as any)) as unknown as AsyncIterable<StreamChunk>
 
   return new Response(
     new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder()
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content ?? ''
-          if (text) controller.enqueue(encoder.encode(text))
+        try {
+          for await (const chunk of stream) {
+            // Trailing usage chunk has no choices but carries .usage (and/or .x_groq.usage)
+            const u = chunk.usage ?? chunk.x_groq?.usage
+            if (u) {
+              inputTokens = u.prompt_tokens ?? inputTokens
+              outputTokens = u.completion_tokens ?? outputTokens
+            }
+            const text = chunk.choices?.[0]?.delta?.content ?? ''
+            if (text) {
+              if (firstTokenTs === null) firstTokenTs = Date.now()
+              controller.enqueue(encoder.encode(text))
+            }
+          }
+          controller.close()
+        } catch (err) {
+          streamError = err instanceof Error ? err.message : String(err)
+          controller.error(err)
+        } finally {
+          recordLlmEvent({
+            userId,
+            endpoint: 'review',
+            model: MODEL,
+            inputTokens,
+            outputTokens,
+            ttftMs: firstTokenTs != null ? firstTokenTs - startTs : null,
+            totalMs: Date.now() - startTs,
+            error: streamError,
+          }).catch((err) => console.error('[metrics] failed to record:', err))
         }
-        controller.close()
       },
     }),
     {
@@ -134,6 +182,6 @@ Final line must be: SCORE: [0-100]`
         'Transfer-Encoding': 'chunked',
         'Cache-Control': 'no-cache',
       },
-    }
+    },
   )
 })

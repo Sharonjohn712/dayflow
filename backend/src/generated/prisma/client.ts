@@ -66,3 +66,8 @@ export type HabitCheck = Prisma.HabitCheckModel
  * 
  */
 export type JournalEntry = Prisma.JournalEntryModel
+/**
+ * Model LlmEvent
+ * 
+ */
+export type LlmEvent = Prisma.LlmEventModel
