@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { aiApi } from '../../lib/api'
+import { parseReview } from '../../lib/review'
 import { useUIStore } from '../../store/uiStore'
 import { PageHeading } from '../ui'
 
@@ -56,13 +57,6 @@ export function AIReview() {
         score:  null,
       })
     }
-  }
-
-  function parseReview(raw: string): { text: string; score: number | null } {
-    const m = raw.match(/SCORE:\s*(\d+)/i)
-    const score = m ? Number(m[1]) : null
-    const text  = raw.replace(/SCORE:\s*\d+/i, '').trim()
-    return { text, score }
   }
 
   const { status, text, score } = state
