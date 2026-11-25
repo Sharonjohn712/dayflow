@@ -16,7 +16,8 @@ function pct(arr: number[], p: number): number {
 // behind an admin role check.
 statsRouter.get('/llm', async (c) => {
   const userId = c.get('userId')
-  const days = Math.min(Math.max(Number(c.req.query('days') ?? 30), 1), 90)
+  const requested = Number(c.req.query('days') ?? 30)
+  const days = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), 90) : 30
   const since = new Date(Date.now() - days * 86_400_000)
 
   const events = await prisma.llmEvent.findMany({

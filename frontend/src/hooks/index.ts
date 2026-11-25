@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { tasksApi, goalsApi, habitsApi, journalApi, aiApi } from '../lib/api'
+import { applyHabitCheck } from '../lib/tasks'
 import type { Task, Goal, Habit, Category } from '../types'
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
@@ -123,13 +124,7 @@ export function useToggleHabitCheck() {
       await qc.cancelQueries({ queryKey: ['habits'] })
       const prev = qc.getQueryData<Habit[]>(['habits'])
       qc.setQueryData<Habit[]>(['habits'], (old) =>
-        old?.map((h) => {
-          if (h.id !== id) return h
-          const checks = checked
-            ? [...new Set([...h.checks, date])]
-            : h.checks.filter((d) => d !== date)
-          return { ...h, checks }
-        })
+        old && applyHabitCheck(old, id, date, checked)
       )
       return { prev }
     },
