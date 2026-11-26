@@ -11,7 +11,7 @@ React + Vite · Hono · PostgreSQL (Supabase) · Clerk Auth · Groq
 | Database | PostgreSQL via Supabase |
 | Auth | Clerk (OAuth + session management) |
 | AI | Groq — `llama-3.3-70b-versatile` with streaming day reviews (server-side only) |
-| Deploy | Vercel (frontend) + Railway (backend) |
+| Deploy | Vercel (frontend) + Render (backend) |
 
 ## Local Development
 
