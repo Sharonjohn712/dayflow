@@ -86,9 +86,9 @@ pulling from Git. Nothing deploys unless the tests pass.
 
 ### One-time setup
 
-**Vercel** (frontend — the workflow runs the CLI inside `frontend/`, so leave the project's
-**Root Directory** setting empty, otherwise the path doubles to `frontend/frontend`):
-1. Run `npx vercel link` inside `frontend/` → note `orgId` and `projectId` in `frontend/.vercel/project.json`.
+**Vercel** (frontend — the project's **Root Directory** is `frontend`; the workflow runs the CLI
+from the repo root and Vercel builds that subfolder):
+1. Run `npx vercel link` at the repo root → note `orgId` and `projectId` in `.vercel/project.json`.
 2. Create a token: Vercel → Account Settings → Tokens.
 3. Environment variables (Project → Settings → Environment Variables):
    - **Production:** `VITE_CLERK_PUBLISHABLE_KEY` (Clerk production key), `VITE_API_URL` (production Render URL)

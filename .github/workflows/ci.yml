@@ -58,9 +58,8 @@ jobs:
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
-    defaults:
-      run:
-        working-directory: frontend
+    # The Vercel project's Root Directory is `frontend`, so the CLI runs from
+    # the repo root and Vercel builds the subfolder itself.
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -69,13 +68,18 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24 # matches the Vercel project's Node version
 
-      - run: npm install --global vercel@latest
+      - run: npm install --global vercel@68.0.0
       - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
       - id: deploy
-        run: echo "url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
+        run: |
+          out=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          # CLI 68 prints JSON when not attached to a terminal; older versions print the bare URL.
+          url=$(printf '%s' "$out" | jq -er '.deployment.url' 2>/dev/null || printf '%s' "$out" | tail -n1)
+          echo "Preview: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Comment preview URL on the PR
         uses: actions/github-script@v7
@@ -110,9 +114,8 @@ jobs:
     concurrency:
       group: deploy-frontend
       cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: frontend
+    # The Vercel project's Root Directory is `frontend`, so the CLI runs from
+    # the repo root and Vercel builds the subfolder itself.
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -121,16 +124,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24 # matches the Vercel project's Node version
 
-      - run: npm install --global vercel@latest
+      - run: npm install --global vercel@68.0.0
 
       # Pulls the production env vars (VITE_CLERK_PUBLISHABLE_KEY, VITE_API_URL)
       # and project settings from Vercel, builds here, then uploads the build.
       - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - id: deploy
-        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
+        run: |
+          out=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(printf '%s' "$out" | jq -er '.deployment.url' 2>/dev/null || printf '%s' "$out" | tail -n1)
+          echo "Production: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
   deploy-backend:
     name: Deploy backend (Render)
