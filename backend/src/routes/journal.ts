@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
+import { onInvalid } from '../lib/validation.js'
 
 export const journalRouter = new Hono()
 
@@ -22,7 +23,7 @@ journalRouter.get('/', async (c) => {
 })
 
 // POST /api/journal
-journalRouter.post('/', zValidator('json', createEntrySchema), async (c) => {
+journalRouter.post('/', zValidator('json', createEntrySchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { text, mood } = c.req.valid('json')
   const entry = await prisma.journalEntry.create({

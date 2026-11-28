@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
+import { onInvalid } from '../lib/validation.js'
 
 export const habitsRouter = new Hono()
 
@@ -45,7 +46,7 @@ habitsRouter.get('/', async (c) => {
 })
 
 // POST /api/habits
-habitsRouter.post('/', zValidator('json', createHabitSchema), async (c) => {
+habitsRouter.post('/', zValidator('json', createHabitSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { name } = c.req.valid('json')
   const habit = await prisma.habit.create({ data: { userId, name } })
@@ -53,7 +54,7 @@ habitsRouter.post('/', zValidator('json', createHabitSchema), async (c) => {
 })
 
 // POST /api/habits/:id/check — toggle a day
-habitsRouter.post('/:id/check', zValidator('json', checkSchema), async (c) => {
+habitsRouter.post('/:id/check', zValidator('json', checkSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { id } = c.req.param()
   const { date, checked } = c.req.valid('json')

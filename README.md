@@ -88,6 +88,21 @@ coverage drops below **90%** (lines, statements, functions and branches):
 
 Thresholds live in each package's `vitest.config.ts`.
 
+### API contract tests
+
+The contract is `backend/src/contract/schemas.ts`: Zod schemas for every response body the
+frontend reads, including the error body `{ error: string, details? }`.
+
+- **Before merge** (`src/contract/provider.test.ts`, part of `npm test`): every route's success,
+  400, 404 and 500 responses are checked against the schemas, in-process.
+- **After each production deploy** (`contract/live.test.ts`, job *Contract tests (production API)*):
+  CI waits until Render's `/health` reports the merged commit, then checks the live API. It confirms
+  `/health` matches the contract, every `/api` route returns `401 { error }` without or with a bad
+  token, and CORS allows the production site but not other origins. These checks are read-only:
+  no request passes authentication, so production data is never touched.
+
+Run the live suite yourself: `cd backend && CONTRACT_BASE_URL=https://<api> npm run test:contract`.
+
 ## Deployment
 
 Deploys are driven by GitHub Actions (`.github/workflows/ci.yml`), not by Vercel/Render
@@ -96,7 +111,7 @@ pulling from Git. Nothing deploys unless the tests pass.
 | Event | Tests | Frontend (Vercel) | Backend (Render) |
 |---|---|---|---|
 | Pull request | ✅ | **Preview** deploy, URL commented on the PR | — (previews use the staging backend) |
-| Push / merge to `main` | ✅ | **Production** deploy | Production deploy hook (+ staging hook if set) |
+| Push / merge to `main` | ✅ | **Production** deploy | Production deploy hook (+ staging hook if set), then live API contract tests |
 | Manual (Actions → CI/CD → Run workflow on `main`) | ✅ | Production | Production |
 
 ### One-time setup

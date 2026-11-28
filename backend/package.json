@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "evals": "tsx evals/run-evals.ts",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:contract": "vitest run --config vitest.contract.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

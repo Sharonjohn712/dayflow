@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
+import { onInvalid } from '../lib/validation.js'
 
 export const tasksRouter = new Hono()
 
@@ -31,7 +32,7 @@ tasksRouter.get('/', async (c) => {
 })
 
 // POST /api/tasks
-tasksRouter.post('/', zValidator('json', createTaskSchema), async (c) => {
+tasksRouter.post('/', zValidator('json', createTaskSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const data = c.req.valid('json')
   const task = await prisma.task.create({
@@ -48,7 +49,7 @@ tasksRouter.delete('/done/all', async (c) => {
 })
 
 // PATCH /api/tasks/:id
-tasksRouter.patch('/:id', zValidator('json', updateTaskSchema), async (c) => {
+tasksRouter.patch('/:id', zValidator('json', updateTaskSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { id } = c.req.param()
   const data = c.req.valid('json')

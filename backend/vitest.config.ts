@@ -1,7 +1,9 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    // Live contract tests hit a deployed API; they have their own config.
+    exclude: [...configDefaults.exclude, 'contract/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
