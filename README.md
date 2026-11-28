@@ -11,7 +11,7 @@ React + Vite · Hono · PostgreSQL (Supabase) · Clerk Auth · Groq
 | Database | PostgreSQL via Supabase |
 | Auth | Clerk (OAuth + session management) |
 | AI | Groq — `llama-3.3-70b-versatile` with streaming day reviews (server-side only) |
-| Deploy | Vercel (frontend) + Railway (backend) |
+| Deploy | Vercel (frontend) + Render (backend) |
 
 ## Local Development
 
@@ -74,12 +74,12 @@ Visit http://localhost:5173
 
 ## Deployment
 
-### Backend → Railway
+### Backend → Render
 
 ```bash
-# In Railway dashboard: New Project → Deploy from GitHub
+# In Render dashboard: New Project → Deploy from GitHub
 # Set environment variables from backend/.env
-# Railway auto-detects Node.js and runs npm start
+# Render auto-detects Node.js and runs npm start
 ```
 
 ### Frontend → Vercel
