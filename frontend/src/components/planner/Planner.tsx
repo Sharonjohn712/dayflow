@@ -6,6 +6,7 @@ import { useUIStore } from '../../store/uiStore'
 import { PageHeading, Empty, Spinner } from '../ui'
 import { CAT_LABELS, CAT_CLASS, type Category, type TaskFilter, type TaskSort } from '../../types'
 import { cn } from '../../lib/utils'
+import { visibleTasks } from '../../lib/tasks'
 
 const CATEGORIES: Category[] = ['WORK', 'HEALTH', 'PERSONAL', 'OTHER']
 
@@ -48,20 +49,7 @@ export function Planner() {
     if (e.key === 'Enter') handleAdd()
   }
 
-  // Filter
-  let filtered = [...tasks]
-  if (taskFilter === 'pending') filtered = filtered.filter((t) => !t.done)
-  else if (taskFilter === 'done') filtered = filtered.filter((t) => t.done)
-  else if (['WORK', 'HEALTH', 'PERSONAL', 'OTHER'].includes(taskFilter as string))
-    filtered = filtered.filter((t) => t.category === taskFilter)
-
-  // Sort
-  if (taskSort === 'time')
-    filtered.sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
-  else if (taskSort === 'category')
-    filtered.sort((a, b) => a.category.localeCompare(b.category))
-  else
-    filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  const filtered = visibleTasks(tasks, taskFilter, taskSort)
 
   return (
     <>

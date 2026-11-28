@@ -11,13 +11,14 @@ import { aiRouter } from './routes/ai.js'
 import { statsRouter } from './routes/stats.js'
 import { requireAuth } from './middleware/auth.js'
 import { errorHandler } from './middleware/error.js'
+import { originMatcher } from './lib/cors.js'
 
 const app = new Hono()
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use('*', logger())
 app.use('*', cors({
-  origin: process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173',
+  origin: originMatcher(process.env),
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,

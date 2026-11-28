@@ -1,0 +1,172 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # manual re-deploy of main from the Actions tab
+
+# Superseded PR runs are cancelled; runs on main are never cancelled mid-deploy.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+
+      - run: npm ci
+
+      # backend: tsc --noEmit · frontend: tsc && vite build
+      - name: Typecheck & build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+  # ── Preview (staging) deploy for pull requests ─────────────────────────────
+  # Every PR from this repo gets its own Vercel Preview URL, built with the
+  # Preview environment's variables (staging backend + Clerk dev keys), and
+  # the link is posted on the PR. Fork PRs are skipped: they get no secrets.
+  deploy-preview:
+    name: Deploy preview (Vercel)
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    # The Vercel project's Root Directory is `frontend`, so the CLI runs from
+    # the repo root and Vercel builds the subfolder itself.
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # matches the Vercel project's Node version
+
+      - run: npm install --global vercel@68.0.0
+      - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - id: deploy
+        run: |
+          out=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          # CLI 68 prints JSON when not attached to a terminal; older versions print the bare URL.
+          url=$(printf '%s' "$out" | jq -er '.deployment.url' 2>/dev/null || printf '%s' "$out" | tail -n1)
+          echo "Preview: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL on the PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- dayflow-preview -->'
+            const body = `${marker}\n🔍 **Preview deployed:** ${process.env.PREVIEW_URL}\n\nCommit: ${context.payload.pull_request.head.sha.slice(0, 7)}`
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+            const existing = comments.find((c) => c.body?.includes(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }
+
+  # ── Deploys: only from main, only after every test job passed ──────────────
+  # Vercel's and Render's own auto-deploy on push are turned off, so these jobs
+  # are the only way a commit reaches production.
+
+  deploy-frontend:
+    name: Deploy frontend (Vercel)
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    concurrency:
+      group: deploy-frontend
+      cancel-in-progress: false
+    # The Vercel project's Root Directory is `frontend`, so the CLI runs from
+    # the repo root and Vercel builds the subfolder itself.
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # matches the Vercel project's Node version
+
+      - run: npm install --global vercel@68.0.0
+
+      # Pulls the production env vars (VITE_CLERK_PUBLISHABLE_KEY, VITE_API_URL)
+      # and project settings from Vercel, builds here, then uploads the build.
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - id: deploy
+        run: |
+          out=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(printf '%s' "$out" | jq -er '.deployment.url' 2>/dev/null || printf '%s' "$out" | tail -n1)
+          echo "Production: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+  deploy-backend:
+    name: Deploy backend (Render)
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
+    steps:
+      # A deploy hook makes Render build and release the latest commit on main.
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+      # Optional: keep the staging backend (used by PR previews) on the same code.
+      - name: Trigger Render staging deploy hook
+        env:
+          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_STAGING_DEPLOY_HOOK_URL" ]; then
+            echo "No staging backend configured; skipping."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_STAGING_DEPLOY_HOOK_URL"

@@ -5,6 +5,7 @@ import Groq from 'groq-sdk'
 import { prisma } from '../lib/prisma.js'
 import { buildReviewPrompt } from '../lib/review-prompt.js'
 import { recordLlmEvent } from '../lib/metrics.js'
+import { parseSuggestions } from '../lib/suggestions.js'
 
 export const aiRouter = new Hono()
 
@@ -58,12 +59,7 @@ Example: ["Reply to emails","10-min walk","Review calendar"]`,
     outputTokens = completion.usage?.completion_tokens ?? 0
 
     const text = completion.choices[0]?.message?.content ?? ''
-    try {
-      const suggestions = JSON.parse(text.replace(/```json|```/g, '').trim()) as string[]
-      return c.json({ suggestions })
-    } catch {
-      return c.json({ suggestions: [] })
-    }
+    return c.json({ suggestions: parseSuggestions(text) })
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err)
     throw err

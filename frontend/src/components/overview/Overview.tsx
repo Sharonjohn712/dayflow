@@ -1,6 +1,7 @@
 import { useTasks, useGoals, useHabits, useJournal } from '../../hooks'
 import { PageHeading, ProgressBar, Empty } from '../ui'
-import { greeting, habitStreak, formatDate } from '../../lib/utils'
+import { greeting, formatDate } from '../../lib/utils'
+import { bestStreak, completionPct } from '../../lib/tasks'
 import { useUIStore } from '../../store/uiStore'
 
 export function Overview() {
@@ -12,18 +13,15 @@ export function Overview() {
 
   const done  = tasks.filter((t) => t.done).length
   const total = tasks.length
-  const pct   = total ? Math.round((done / total) * 100) : null
+  const pct   = completionPct(tasks)
 
-  const bestStreak = habits.length
-    ? Math.max(...habits.map((h) => habitStreak(h.checks)))
-    : 0
+  const streak = bestStreak(habits)
 
   const workTasks     = tasks.filter((t) => t.category === 'WORK')
   const healthTasks   = tasks.filter((t) => t.category === 'HEALTH')
   const personalTasks = tasks.filter((t) => t.category === 'PERSONAL')
 
-  const catPct = (arr: typeof tasks) =>
-    arr.length ? Math.round(arr.filter((t) => t.done).length / arr.length * 100) : 0
+  const catPct = (arr: typeof tasks) => completionPct(arr) ?? 0
 
   return (
     <>
@@ -36,7 +34,7 @@ export function Overview() {
         <StatCard color="bg-peach border-yellow-300" label="Tasks Done"     value={String(done)}                sub={`of ${total} total`} />
         <StatCard color="bg-mist  border-teal-200"   label="Completion"     value={pct !== null ? `${pct}%` : '—'} sub="today's rate" />
         <StatCard color="bg-sage  border-teal-300"   label="Active Goals"   value={String(goals.length)}        sub="being tracked" />
-        <StatCard color="bg-blush border-orange-200" label="Habit Streak"   value={String(bestStreak)}          sub="best today 🔥" />
+        <StatCard color="bg-blush border-orange-200" label="Habit Streak"   value={String(streak)}              sub="best today 🔥" />
       </div>
 
       {/* Two-col lower row */}

@@ -43,7 +43,8 @@ DATABASE_URL="postgresql://..."   # Supabase connection string
 CLERK_SECRET_KEY="sk_..."
 CLERK_JWT_KEY="..."               # JWKS public key for token verification
 GROQ_API_KEY="gsk_..."            # from console.groq.com
-ALLOWED_ORIGIN="http://localhost:5173"
+ALLOWED_ORIGIN="http://localhost:5173"   # comma-separated list allowed
+# ALLOWED_ORIGIN_PATTERN=""             # staging only: regex for Vercel preview URLs
 PORT=3001
 ```
 
@@ -74,21 +75,45 @@ Visit http://localhost:5173
 
 ## Deployment
 
-### Backend → Render
+Deploys are driven by GitHub Actions (`.github/workflows/ci.yml`), not by Vercel/Render
+pulling from Git. Nothing deploys unless the tests pass.
 
-```bash
-# In Render dashboard: New Project → Deploy from GitHub
-# Set environment variables from backend/.env
-# Render auto-detects Node.js and runs npm start
-```
+| Event | Tests | Frontend (Vercel) | Backend (Render) |
+|---|---|---|---|
+| Pull request | ✅ | **Preview** deploy, URL commented on the PR | — (previews use the staging backend) |
+| Push / merge to `main` | ✅ | **Production** deploy | Production deploy hook (+ staging hook if set) |
+| Manual (Actions → CI/CD → Run workflow on `main`) | ✅ | Production | Production |
 
-### Frontend → Vercel
+### One-time setup
 
-```bash
-npx vercel --cwd frontend
-# Set VITE_CLERK_PUBLISHABLE_KEY and VITE_API_URL in Vercel dashboard
-# VITE_API_URL = your Railway backend URL
-```
+**Vercel** (frontend — the project's **Root Directory** is `frontend`; the workflow runs the CLI
+from the repo root and Vercel builds that subfolder):
+1. Run `npx vercel link` at the repo root → note `orgId` and `projectId` in `.vercel/project.json`.
+2. Create a token: Vercel → Account Settings → Tokens.
+3. Environment variables (Project → Settings → Environment Variables):
+   - **Production:** `VITE_CLERK_PUBLISHABLE_KEY` (Clerk production key), `VITE_API_URL` (production Render URL)
+   - **Preview:** `VITE_CLERK_PUBLISHABLE_KEY` (Clerk *development* key), `VITE_API_URL` (staging Render URL)
+4. Git auto-deploys are disabled in `frontend/vercel.json` (`git.deploymentEnabled: false`).
+
+**Render** (backend):
+1. Production service → Settings → **Auto-Deploy: Off**, then copy its **Deploy Hook** URL.
+2. *(Staging, for PR previews)* Create a second service `dayflow-staging` from the same repo with its own
+   database, Clerk development keys, Auto-Deploy Off, and
+   `ALLOWED_ORIGIN_PATTERN=https://<vercel-project>-[a-z0-9-]+-<vercel-team-slug>\.vercel\.app`.
+   Copy its Deploy Hook URL too.
+
+**GitHub** → Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|---|---|
+| `VERCEL_TOKEN` | Vercel token |
+| `VERCEL_ORG_ID` | `orgId` from `project.json` |
+| `VERCEL_PROJECT_ID` | `projectId` from `project.json` |
+| `RENDER_DEPLOY_HOOK_URL` | Production deploy hook |
+| `RENDER_STAGING_DEPLOY_HOOK_URL` | Staging deploy hook (optional) |
+
+Optional: GitHub → Settings → Environments → `production` → **Required reviewers** to approve each
+production deploy, and a branch protection rule on `main` requiring the `backend` and `frontend` checks.
 
 ## Project Structure
 
