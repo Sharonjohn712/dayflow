@@ -73,6 +73,21 @@ cd frontend && npm run dev
 
 Visit http://localhost:5173
 
+## Tests & coverage
+
+```bash
+cd backend  && npm test               # or: npm run test:coverage
+cd frontend && npm test               # or: npm run test:coverage
+```
+
+Coverage uses Vitest's V8 provider; HTML reports land in `<package>/coverage/`. CI fails if
+coverage drops below **90%** (lines, statements, functions and branches):
+
+- **Backend:** all of `src/` (plus the eval rubric), except server/env/Prisma wiring.
+- **Frontend:** `src/lib`, `src/hooks` and `src/store`. Components are reported but not yet gated.
+
+Thresholds live in each package's `vitest.config.ts`.
+
 ## Deployment
 
 Deploys are driven by GitHub Actions (`.github/workflows/ci.yml`), not by Vercel/Render

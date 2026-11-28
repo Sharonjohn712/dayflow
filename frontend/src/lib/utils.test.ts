@@ -1,5 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dowInitial, getLast7Days, greeting, habitStreak, today } from './utils'
+import { cn, dowInitial, formatDate, getLast7Days, greeting, habitStreak, today } from './utils'
+
+describe('cn', () => {
+  it('joins truthy class names', () => {
+    expect(cn('a', false && 'b', { c: true, d: false })).toBe('a c')
+  })
+})
+
+describe('formatDate', () => {
+  it('formats an ISO timestamp for display', () => {
+    const out = formatDate('2026-03-10T14:05:00Z')
+    expect(out).toMatch(/Mar/)
+    expect(out).toMatch(/\d{1,2}:\d{2}/)
+  })
+})
 
 describe('date helpers', () => {
   beforeEach(() => {
