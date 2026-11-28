@@ -195,3 +195,65 @@ jobs:
             exit 0
           fi
           curl --fail --silent --show-error -X POST "$RENDER_STAGING_DEPLOY_HOOK_URL"
+
+  # ── Live API contract tests, after the production deploy ───────────────────
+  # There is no separate test environment yet, so the contract is checked on
+  # production right after each deploy. The checks are read-only: no request
+  # passes authentication, so nothing is written to production data.
+  contract-production:
+    name: Contract tests (production API)
+    needs: deploy-backend
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # The API URL the production frontend is built with, and the site's
+      # domain, both read from Vercel so they can't drift from what users get.
+      - name: Resolve production URLs from Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          ORG: ${{ secrets.VERCEL_ORG_ID }}
+          PROJECT: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          api="https://api.vercel.com"
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          env_id=$(curl -fsS -H "$auth" "$api/v10/projects/$PROJECT/env?teamId=$ORG" \
+            | jq -r '[.envs[] | select(.key=="VITE_API_URL" and (.target | index("production")))][0].id')
+          api_url=$(curl -fsS -H "$auth" "$api/v1/projects/$PROJECT/env/$env_id?teamId=$ORG" | jq -r '.value')
+          domain=$(curl -fsS -H "$auth" "$api/v9/projects/$PROJECT/domains?teamId=$ORG" \
+            | jq -r '[.domains[] | select(.gitBranch == null and .redirect == null)][0].name')
+          case "$api_url" in https://*) ;; *) echo "::error::Could not read VITE_API_URL for production"; exit 1;; esac
+          echo "API: $api_url  Site: https://$domain"
+          echo "CONTRACT_BASE_URL=${api_url%/}" >> "$GITHUB_ENV"
+          [ "$domain" != "null" ] && echo "CONTRACT_FRONTEND_ORIGIN=https://$domain" >> "$GITHUB_ENV"
+
+      # The deploy hook returns before Render finishes, so wait until /health
+      # reports this commit. A deploy that fails or stalls fails this step.
+      - name: Wait for Render to serve this commit
+        run: |
+          for i in $(seq 1 60); do
+            got=$(curl -fsS --max-time 60 "$CONTRACT_BASE_URL/health" | jq -r '.commit // empty' || true)
+            if [ "$got" = "$GITHUB_SHA" ]; then echo "Render is serving $GITHUB_SHA"; exit 0; fi
+            echo "Attempt $i: serving '${got:-unknown}', waiting for $GITHUB_SHA"
+            sleep 15
+          done
+          echo "::error::Render did not serve $GITHUB_SHA within 15 minutes. Check the Render deploy log."
+          exit 1
+
+      - name: Run live contract tests
+        env:
+          CONTRACT_EXPECT_COMMIT: ${{ github.sha }}
+        run: npm run test:contract

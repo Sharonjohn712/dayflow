@@ -25,7 +25,9 @@ app.use('*', cors({
 }))
 
 // ── Health check (public) ────────────────────────────────────────────────────
-app.get('/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }))
+app.get('/health', (c) =>
+  c.json({ ok: true, ts: new Date().toISOString(), commit: process.env.RENDER_GIT_COMMIT ?? null })
+)
 
 // ── Protected API routes ──────────────────────────────────────────────────────
 app.use('/api/*', requireAuth)

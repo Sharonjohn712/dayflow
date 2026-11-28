@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
+import { onInvalid } from '../lib/validation.js'
 
 export const goalsRouter = new Hono()
 
@@ -25,7 +26,7 @@ goalsRouter.get('/', async (c) => {
 })
 
 // POST /api/goals
-goalsRouter.post('/', zValidator('json', createGoalSchema), async (c) => {
+goalsRouter.post('/', zValidator('json', createGoalSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { text } = c.req.valid('json')
   const goal = await prisma.goal.create({ data: { userId, text } })
@@ -33,7 +34,7 @@ goalsRouter.post('/', zValidator('json', createGoalSchema), async (c) => {
 })
 
 // PATCH /api/goals/:id
-goalsRouter.patch('/:id', zValidator('json', updateGoalSchema), async (c) => {
+goalsRouter.patch('/:id', zValidator('json', updateGoalSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { id } = c.req.param()
   const data = c.req.valid('json')

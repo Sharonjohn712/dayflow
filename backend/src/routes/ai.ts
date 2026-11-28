@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import Groq from 'groq-sdk'
 import { prisma } from '../lib/prisma.js'
+import { onInvalid } from '../lib/validation.js'
 import { buildReviewPrompt } from '../lib/review-prompt.js'
 import { recordLlmEvent } from '../lib/metrics.js'
 import { parseSuggestions } from '../lib/suggestions.js'
@@ -82,7 +83,7 @@ const reviewSchema = z.object({
   userName: z.string().max(100).nullish(),
 })
 
-aiRouter.post('/review', zValidator('json', reviewSchema), async (c) => {
+aiRouter.post('/review', zValidator('json', reviewSchema, onInvalid), async (c) => {
   const userId = c.get('userId')
   const { userName } = c.req.valid('json')
 
